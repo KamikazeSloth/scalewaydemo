@@ -53,4 +53,4 @@ jobs:
         with:
           container_id: 43ead729-3020-426b-be14-ee1aa10e2e7e
           secret_key: ${{ secrets.SCW_SECRET_KEY }}
-          registry_image_url: rg.fr-par.scw.cloud/nilslair/my-nextjs-app:latest
+          registry_image_url: rg.fr-par.scw.cloud/nilslair/my-nextjs-app:sha-${{ github.sha }}
