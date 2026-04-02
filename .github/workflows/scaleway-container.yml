@@ -41,13 +41,14 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push image
-        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Deploy container
@@ -57,4 +58,4 @@ jobs:
           secret_key: ${{ secrets.SCW_SECRET_KEY }}
           region: ${{ env.SCW_REGION }}
           timeout_seconds: 300
-          registry_image_url: ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          registry_image_url: ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
