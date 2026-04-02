@@ -5,57 +5,28 @@ on:
     branches:
       - main
   workflow_dispatch:
-
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    env:
-      REGISTRY_HOST: rg.fr-par.scw.cloud
-      IMAGE_NAME: nilslair/my-nextjs-app
-      SCW_REGION: fr-par
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Scaleway Container Registry
+      - uses: actions/checkout@v4
+      - name: Login to Scaleway Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY_HOST }}
           username: nologin
-          password: ${{ secrets.SCW_SECRET_KEY }}
+          password: ${{ secrets.SCW_API_KEY }}
+          registry: rg.fr-par.scw.cloud/nilslair
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
+      - name: Build the Docker image
+        run: docker build . -t rg.fr-par.scw.cloud/nilslair/my-nextjs-app
 
-      - name: Build and push image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          labels: ${{ steps.meta.outputs.labels }}
+      - name: Push the Docker Image
+        run: docker push rg.fr-par.scw.cloud/nilslair/my-nextjs-app
 
       - name: Deploy container
         uses: httptoolkit/deploy-scaleway-serverless-container-action@v1
         with:
           container_id: 43ead729-3020-426b-be14-ee1aa10e2e7e
           secret_key: ${{ secrets.SCW_SECRET_KEY }}
-          region: ${{ env.SCW_REGION }}
-          timeout_seconds: 300
-          registry_image_url: ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          registry_image_url: rg.fr-par.scw.cloud/nilslair/my-nextjs-app:latest
+          region: fr-par
