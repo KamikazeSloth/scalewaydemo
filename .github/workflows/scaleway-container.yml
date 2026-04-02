@@ -23,10 +23,10 @@ jobs:
       - name: Push the Docker Image
         run: docker push rg.fr-par.scw.cloud/nilslair/my-nextjs-app
 
-      - name: Deploy container
-        uses: httptoolkit/deploy-scaleway-serverless-container-action@v1
-        with:
-          container_id: 43ead729-3020-426b-be14-ee1aa10e2e7e
-          secret_key: ${{ secrets.SCW_SECRET_KEY }}
-          registry_image_url: rg.fr-par.scw.cloud/nilslair/my-nextjs-app:latest
-          region: fr-par
+      # - name: Deploy container
+      #   uses: httptoolkit/deploy-scaleway-serverless-container-action@v1
+      #   with:
+      #     container_id: 43ead729-3020-426b-be14-ee1aa10e2e7e
+      #     secret_key: ${{ secrets.SCW_SECRET_KEY }}
+      #     registry_image_url: rg.fr-par.scw.cloud/nilslair/my-nextjs-app:latest
+      #     region: fr-par
