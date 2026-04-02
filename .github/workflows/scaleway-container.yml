@@ -42,18 +42,66 @@ jobs:
           IMAGE="$REGISTRY_IMAGE:${GITHUB_SHA}"
           API_BASE="https://api.scaleway.com/containers/v1beta1/regions/$REGION/containers/$CONTAINER_ID"
 
+          # Wait for container to be in ready state before updating
+          echo "Waiting for container to be in a stable state..."
+          for i in {1..20}; do
+            current_status=$(curl --silent --show-error \
+              -H "X-Auth-Token: $SCW_SECRET_KEY" \
+              "$API_BASE" | jq -r '.status')
+
+            echo "Current container status: $current_status"
+
+            if [ "$current_status" = "ready" ]; then
+              break
+            fi
+
+            sleep 5
+          done
+
+          echo "Updating container image..."
           curl --fail --silent --show-error \
             -X PATCH "$API_BASE" \
             -H "X-Auth-Token: $SCW_SECRET_KEY" \
             -H "Content-Type: application/json" \
-            -d "{\"registry_image\":\"$IMAGE\"}" > /dev/null
+            -d "{\"registry_image\":\"$IMAGE\"}"
 
-          curl --fail --silent --show-error \
-            -X POST "$API_BASE/deploy" \
-            -H "X-Auth-Token: $SCW_SECRET_KEY" > /dev/null
+          echo "Triggering deployment with retry logic..."
+          deploy_success=0
+          for attempt in {1..5}; do
+            http_code=$(curl -s -o /tmp/deploy_response.json -w "%{http_code}" \
+              -X POST "$API_BASE/deploy" \
+              -H "X-Auth-Token: $SCW_SECRET_KEY")
 
-          for i in {1..30}; do
-            status=$(curl --fail --silent --show-error \
+            echo "Deploy attempt $attempt returned HTTP $http_code"
+
+            if [ "$http_code" = "200" ] || [ "$http_code" = "201" ] || [ "$http_code" = "202" ]; then
+              deploy_success=1
+              break
+            fi
+
+            if [ "$http_code" = "409" ]; then
+              echo "Got 409 Conflict - container may already be deploying, will poll anyway"
+              deploy_success=1
+              break
+            fi
+
+            # Retry with backoff
+            if [ $attempt -lt 5 ]; then
+              wait_time=$((2 ** (attempt - 1)))
+              echo "Retrying in ${wait_time}s..."
+              sleep $wait_time
+            fi
+          done
+
+          if [ $deploy_success -eq 0 ]; then
+            echo "Failed to trigger deployment after retries"
+            exit 1
+          fi
+
+          # Poll for deployment completion
+          echo "Polling container status..."
+          for i in {1..60}; do
+            status=$(curl --silent --show-error \
               -H "X-Auth-Token: $SCW_SECRET_KEY" \
               "$API_BASE" | jq -r '.status')
 
@@ -69,7 +117,7 @@ jobs:
               exit 1
             fi
 
-            sleep 10
+            sleep 5
           done
 
           echo "Timed out waiting for container to reach ready state."
