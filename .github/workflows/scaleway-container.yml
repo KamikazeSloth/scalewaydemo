@@ -51,6 +51,8 @@ jobs:
       - name: Deploy to Scaleway Serverless Container
         uses: scaleway/action-scw@v0
         with:
+          repo-token: ${{ github.token }}
+          version: v0.0.2
           access-key: ${{ secrets.SCW_ACCESS_KEY }}
           secret-key: ${{ secrets.SCW_SECRET_KEY }}
           default-project-id: ${{ secrets.SCW_DEFAULT_PROJECT_ID }}
