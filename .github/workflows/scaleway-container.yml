@@ -15,6 +15,7 @@ jobs:
     env:
       REGISTRY_HOST: rg.fr-par.scw.cloud
       IMAGE_NAME: nilslair/my-nextjs-app
+      SCW_REGION: fr-par
 
     steps:
       - name: Checkout
@@ -40,6 +41,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -53,4 +55,6 @@ jobs:
         with:
           container_id: 43ead729-3020-426b-be14-ee1aa10e2e7e
           secret_key: ${{ secrets.SCW_SECRET_KEY }}
-          registry_image_url: rg.fr-par.scw.cloud/nilslair/my-nextjs-app:sha-${{ github.sha }}
+          region: ${{ env.SCW_REGION }}
+          timeout_seconds: 300
+          registry_image_url: ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
