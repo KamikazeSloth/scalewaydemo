@@ -8,8 +8,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      REGION: fr-par
+      CONTAINER_ID: 43ead729-3020-426b-be14-ee1aa10e2e7e
+      REGISTRY_IMAGE: rg.fr-par.scw.cloud/nilslair/my-nextjs-app
     steps:
       - uses: actions/checkout@v4
+
       - name: Login to Scaleway Container Registry
         uses: docker/login-action@v3
         with:
@@ -18,15 +23,54 @@ jobs:
           registry: rg.fr-par.scw.cloud/nilslair
 
       - name: Build the Docker image
-        run: docker build . -t rg.fr-par.scw.cloud/nilslair/my-nextjs-app
+        run: |
+          docker build . \
+            -t "$REGISTRY_IMAGE:${GITHUB_SHA}" \
+            -t "$REGISTRY_IMAGE:latest"
 
-      - name: Push the Docker Image
-        run: docker push rg.fr-par.scw.cloud/nilslair/my-nextjs-app
+      - name: Push Docker images
+        run: |
+          docker push "$REGISTRY_IMAGE:${GITHUB_SHA}"
+          docker push "$REGISTRY_IMAGE:latest"
 
       - name: Deploy container
-        uses: httptoolkit/deploy-scaleway-serverless-container-action@v1
-        with:
-          container_id: 43ead729-3020-426b-be14-ee1aa10e2e7e
-          secret_key: ${{ secrets.SCW_SECRET_KEY }}
-          registry_image_url: rg.fr-par.scw.cloud/nilslair/my-nextjs-app
-          region: fr-par
+        env:
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+
+          IMAGE="$REGISTRY_IMAGE:${GITHUB_SHA}"
+          API_BASE="https://api.scaleway.com/containers/v1beta1/regions/$REGION/containers/$CONTAINER_ID"
+
+          curl --fail --silent --show-error \
+            -X PATCH "$API_BASE" \
+            -H "X-Auth-Token: $SCW_SECRET_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"registry_image\":\"$IMAGE\"}" > /dev/null
+
+          curl --fail --silent --show-error \
+            -X POST "$API_BASE/deploy" \
+            -H "X-Auth-Token: $SCW_SECRET_KEY" > /dev/null
+
+          for i in {1..30}; do
+            status=$(curl --fail --silent --show-error \
+              -H "X-Auth-Token: $SCW_SECRET_KEY" \
+              "$API_BASE" | jq -r '.status')
+
+            echo "Container status: $status"
+
+            if [ "$status" = "ready" ]; then
+              echo "Deployment completed successfully."
+              exit 0
+            fi
+
+            if [ "$status" = "error" ]; then
+              echo "Deployment failed."
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          echo "Timed out waiting for container to reach ready state."
+          exit 1
