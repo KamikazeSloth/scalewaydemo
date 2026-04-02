@@ -14,7 +14,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: nologin
-          password: ${{ secrets.SCW_API_KEY }}
+          password: ${{ secrets.SCW_SECRET_KEY }}
           registry: rg.fr-par.scw.cloud/nilslair
 
       - name: Build the Docker image
